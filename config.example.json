@@ -1,4 +1,6 @@
 {
+  "input_path": "input.png",
+  "output_path": "output.png",
   "input_mode": "auto",
   "frame_width": 128,
   "frame_height": 128,

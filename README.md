@@ -23,6 +23,8 @@ pip install -r requirements.txt
 
 ```json
 {
+  "input_path": "input.png",
+  "output_path": "output.png",
   "input_mode": "auto",
   "frame_width": 128,
   "frame_height": 128,
@@ -37,6 +39,8 @@ pip install -r requirements.txt
 
 主要設定：
 
+- `input_path`：輸入圖片路徑或輸入資料夾。若是資料夾，命令列的 input 會從這個資料夾底下尋找，例如 `input_path` 是 `C:/Users/louis.chu/Pictures/input` 時，執行 `python ss_adjuster.py takeoff.png` 會讀取 `C:/Users/louis.chu/Pictures/input/takeoff.png`。
+- `output_path`：輸出圖片路徑或輸出資料夾。若同時指定 `--output`，會在 `output_path` 指定的位置用 `--output` 的檔名輸出；若是資料夾且未指定 `--output`，會沿用 input 的檔名。
 - `input_mode`：輸入處理模式。建議使用 `"auto"`；若輸入已經是嚴格固定格，可以用 `"grid"`。
 - `frame_width`：輸出時每個 frame 的寬度。
 - `frame_height`：輸出時每個 frame 的高度。
@@ -57,8 +61,16 @@ y = 128 - 8 = 120
 
 ## 執行
 
+預設會讀取目前目錄的 `config.json`。如果裡面已經填好 `input_path` 和 `output_path`，可以直接執行：
+
 ```bash
-python ss_adjuster.py input.png --config config.json --output output.png
+python ss_adjuster.py
+```
+
+若 `output_path` 是資料夾，輸出檔會使用 input 的同檔名放到該資料夾。若同時有 `output_path` 和 `--output`，會在 `output_path` 指定的位置使用 `--output` 的檔名。若 `--output` 和 `output_path` 都沒填，會輸出成 `input.output.png` 這類檔名，避免直接覆蓋原圖。
+
+```bash
+python ss_adjuster.py input.png --output output.png
 ```
 
 也可以直接用命令列參數覆蓋設定：

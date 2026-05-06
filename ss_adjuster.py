@@ -101,13 +101,72 @@ def color_to_tuple(color: RGB | None) -> tuple[int, int, int, int]:
     return (color.r, color.g, color.b, 255)
 
 
-def load_settings(config_path: Path | None, args: argparse.Namespace) -> Settings:
+def load_config(config_path: Path | None) -> dict[str, object]:
     config: dict[str, object] = {}
     if config_path is not None:
         with config_path.open("r", encoding="utf-8") as file:
             config = json.load(file)
         if not isinstance(config, dict):
             raise ValueError("config file must contain a JSON object")
+    return config
+
+
+def get_path_setting(config: dict[str, object], name: str) -> Path | None:
+    value = config.get(name)
+    if value is None:
+        return None
+
+    text = str(value).strip()
+    if not text:
+        return None
+    return Path(text)
+
+
+def is_directory_path(path: Path) -> bool:
+    return (path.exists() and path.is_dir()) or path.suffix == ""
+
+
+def resolve_input_path(config: dict[str, object], args: argparse.Namespace) -> Path:
+    config_input_path = get_path_setting(config, "input_path")
+    if args.input is not None:
+        if args.input.is_absolute() or config_input_path is None:
+            return args.input
+        if is_directory_path(config_input_path):
+            return config_input_path / args.input
+        return args.input
+
+    if config_input_path is None:
+        raise ValueError("missing input path: pass input or set input_path in config")
+    if config_input_path.exists() and config_input_path.is_dir():
+        raise ValueError("input_path is a directory; pass an input filename such as takeoff.png")
+    return config_input_path
+
+
+def resolve_output_directory(path: Path) -> Path:
+    if is_directory_path(path):
+        return path
+    return path.parent
+
+
+def resolve_io_paths(config: dict[str, object], args: argparse.Namespace) -> tuple[Path, Path]:
+    input_path = resolve_input_path(config, args)
+
+    config_output_path = get_path_setting(config, "output_path")
+    if args.output is not None and config_output_path is not None:
+        output_path = resolve_output_directory(config_output_path) / args.output.name
+    else:
+        output_path = args.output or config_output_path
+
+    if output_path is None:
+        suffix = input_path.suffix or ".png"
+        output_path = input_path.with_name(f"{input_path.stem}.output{suffix}")
+    elif is_directory_path(output_path):
+        output_path = output_path / input_path.name
+
+    return input_path, output_path
+
+
+def load_settings(config: dict[str, object], args: argparse.Namespace) -> Settings:
 
     def get(name: str, default: object = None) -> object:
         override = getattr(args, name, None)
@@ -602,9 +661,15 @@ def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Normalize a one-row sprite sheet using per-frame bottom markers and height rulers."
     )
-    parser.add_argument("input", type=Path, help="input horizontal sprite sheet PNG")
-    parser.add_argument("-o", "--output", type=Path, required=True, help="output sprite sheet PNG")
-    parser.add_argument("-c", "--config", type=Path, help="JSON config file")
+    parser.add_argument("input", nargs="?", type=Path, help="input horizontal sprite sheet PNG")
+    parser.add_argument("-o", "--output", type=Path, help="output sprite sheet PNG or output directory")
+    parser.add_argument(
+        "-c",
+        "--config",
+        type=Path,
+        default=Path("config.json"),
+        help="JSON config file (default: config.json)",
+    )
     parser.add_argument("--input-mode", choices=["grid", "auto"])
     parser.add_argument("--frame-width", type=int)
     parser.add_argument("--frame-height", type=int)
@@ -627,8 +692,10 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     try:
-        settings = load_settings(args.config, args)
-        detections = adjust_sheet(args.input, args.output, settings)
+        config = load_config(args.config)
+        settings = load_settings(config, args)
+        input_path, output_path = resolve_io_paths(config, args)
+        detections = adjust_sheet(input_path, output_path, settings)
     except (OSError, ValueError, json.JSONDecodeError) as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 1
@@ -646,7 +713,7 @@ def main(argv: list[str] | None = None) -> int:
         for warning in detection.warnings:
             print(f"warning: frame {detection.frame_index}: {warning}", file=sys.stderr)
 
-    print(f"wrote {args.output}")
+    print(f"wrote {output_path}")
     if settings.debug_output is not None:
         print(f"wrote debug sheet {settings.debug_output}")
     return 0
