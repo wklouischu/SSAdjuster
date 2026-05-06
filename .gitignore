@@ -1,0 +1,8 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+tmp/
+input.png
+output.debug.png
+output.png
+config.json

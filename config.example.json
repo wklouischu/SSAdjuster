@@ -1,0 +1,16 @@
+{
+  "input_mode": "auto",
+  "frame_width": 128,
+  "frame_height": 128,
+  "target_character_height": 90,
+  "bottom_padding": 8,
+  "ruler_side": "right",
+  "bottom_marker_color": "#ff00ff",
+  "ruler_marker_color": "#00ff00",
+  "marker_tolerance": 0,
+  "min_marker_pixels": 4,
+  "max_bottom_marker_size": 12,
+  "clear_markers": true,
+  "output_background_color": null,
+  "debug_output": "output.debug.png"
+}
