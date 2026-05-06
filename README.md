@@ -4,7 +4,7 @@ SSAdjuster 是一個用來矯正 LLM 產生的橫向單列 sprite sheet 的 Pyth
 
 它會利用每個 frame 裡的兩種純色標記，自動統一角色的位置與比例：
 
-- 下方 marker：3-5 px 邊長的純色正方形。它的中心代表角色中心線，位置代表角色底部錨點。
+- 下方 marker：4-12 px 純色、彼此相連色塊。它的中心代表角色中心線，位置代表角色底部錨點。
 - 右側尺標 marker：3-5 px 寬的純色垂直線。它的高度代表這個 frame 的角色比例尺，不是角色姿勢的可見高度。
 
 工具預設使用 `auto` 模式：它會直接在整張輸入圖上偵測所有 marker，不要求輸入圖片剛好符合 `frame_width * frame_count`。每個 frame 會依照自己的尺標高度縮放，再把下方 marker 對齊到輸出 frame 的固定位置，移除 marker 顏色，最後重新拼成一張完整的橫向 sprite sheet。
