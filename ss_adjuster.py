@@ -66,7 +66,7 @@ class Settings:
     target_character_height: int
     input_mode: str = "grid"
     bottom_padding: int = 0
-    ruler_side: str = "right"
+    ruler_side: str = "none"
     bottom_marker_color: RGB = field(default_factory=lambda: RGB(255, 0, 255))
     ruler_marker_color: RGB = field(default_factory=lambda: RGB(0, 255, 0))
     marker_tolerance: int = 0
@@ -185,7 +185,7 @@ def load_settings(config: dict[str, object], args: argparse.Namespace) -> Settin
         frame_height=int(get("frame_height")),
         target_character_height=int(get("target_character_height")),
         bottom_padding=int(get("bottom_padding", 0)),
-        ruler_side=str(get("ruler_side", "right")).lower(),
+        ruler_side="none" if get("ruler_side", None) is None else str(get("ruler_side")).lower(),
         bottom_marker_color=parse_hex_color(str(get("bottom_marker_color", "#ff00ff"))),
         ruler_marker_color=parse_hex_color(str(get("ruler_marker_color", "#00ff00"))),
         marker_tolerance=int(get("marker_tolerance", 0)),
@@ -220,12 +220,14 @@ def validate_settings(settings: Settings) -> None:
         raise ValueError("bottom_padding cannot be greater than frame_height")
     if settings.marker_tolerance < 0 or settings.marker_tolerance > 255:
         raise ValueError("marker_tolerance must be between 0 and 255")
-    if settings.bottom_marker_color is None or settings.ruler_marker_color is None:
-        raise ValueError("marker colors cannot be null")
+    if settings.bottom_marker_color is None:
+        raise ValueError("bottom_marker_color cannot be null")
+    if settings.ruler_side != "none" and settings.ruler_marker_color is None:
+        raise ValueError("ruler_marker_color cannot be null")
     if settings.input_mode not in {"grid", "auto"}:
         raise ValueError("input_mode must be either 'grid' or 'auto'")
-    if settings.ruler_side not in {"right", "left", "nearest"}:
-        raise ValueError("ruler_side must be 'right', 'left', or 'nearest'")
+    if settings.ruler_side not in {"right", "left", "nearest", "none"}:
+        raise ValueError("ruler_side must be 'right', 'left', 'nearest', or 'none'")
 
 
 def matches_color(pixel: tuple[int, int, int, int], color: RGB, tolerance: int) -> bool:
@@ -350,10 +352,15 @@ def select_ruler(components: list[Component], settings: Settings) -> tuple[Compo
 
 def detect_frame(frame: Image.Image, frame_index: int, settings: Settings) -> FrameDetection:
     bottom_components = find_components(frame, settings.bottom_marker_color, settings.marker_tolerance)
-    ruler_components = find_components(frame, settings.ruler_marker_color, settings.marker_tolerance)
-
     bottom, bottom_warnings = select_bottom_marker(bottom_components, settings)
-    ruler, ruler_warnings = select_ruler(ruler_components, settings)
+
+    if settings.ruler_side == "none":
+        ruler = make_synthetic_ruler(frame.height, round(bottom.center[0]))
+        ruler_warnings: list[str] = []
+    else:
+        ruler_components = find_components(frame, settings.ruler_marker_color, settings.marker_tolerance)
+        ruler, ruler_warnings = select_ruler(ruler_components, settings)
+
     if ruler.height <= 0:
         raise ValueError("ruler height must be greater than 0")
 
@@ -364,6 +371,19 @@ def detect_frame(frame: Image.Image, frame_index: int, settings: Settings) -> Fr
         ruler=ruler,
         scale=scale,
         warnings=bottom_warnings + ruler_warnings,
+    )
+
+
+def make_synthetic_ruler(image_height: int, x: int) -> Component:
+    h = image_height
+    return Component(
+        count=h,
+        min_x=x,
+        min_y=0,
+        max_x=x,
+        max_y=h - 1,
+        sum_x=x * h,
+        sum_y=h * (h - 1) // 2,
     )
 
 
@@ -394,38 +414,46 @@ def source_bbox_for_detection(detection: FrameDetection, settings: Settings) -> 
 
 def detect_auto_frames(sheet: Image.Image, settings: Settings) -> list[FrameDetection]:
     bottom_components = find_components(sheet, settings.bottom_marker_color, settings.marker_tolerance)
-    ruler_components = find_components(sheet, settings.ruler_marker_color, settings.marker_tolerance)
     bottoms = bottom_marker_candidates(bottom_components, settings)
-    rulers = ruler_candidates(ruler_components, settings)
 
     if not bottoms:
         raise ValueError("auto mode found no bottom markers")
-    if not rulers:
-        raise ValueError("auto mode found no ruler markers")
-    if len(bottoms) != len(rulers):
-        raise ValueError(
-            f"auto mode found {len(bottoms)} bottom markers and {len(rulers)} ruler markers; counts must match"
-        )
 
-    remaining_rulers = list(rulers)
-    paired: list[tuple[Component, Component, list[str]]] = []
-    for bottom in sorted(bottoms, key=lambda component: component.center[0]):
-        scored = [
-            (score, ruler)
-            for ruler in remaining_rulers
-            if (score := ruler_pair_score(bottom, ruler, settings)) is not None
+    if settings.ruler_side == "none":
+        paired: list[tuple[Component, Component, list[str]]] = [
+            (bottom, make_synthetic_ruler(sheet.height, round(bottom.center[0])), [])
+            for bottom in sorted(bottoms, key=lambda c: c.center[0])
         ]
-        warnings: list[str] = []
-        if not scored:
-            scored = [
-                (abs(ruler.center[0] - bottom.center[0]) + abs((ruler.max_y + 0.5) - bottom.center[1]) * 4, ruler)
-                for ruler in remaining_rulers
-            ]
-            warnings.append(f"no unused ruler found on the {settings.ruler_side}; using nearest ruler")
+    else:
+        ruler_components = find_components(sheet, settings.ruler_marker_color, settings.marker_tolerance)
+        rulers = ruler_candidates(ruler_components, settings)
 
-        _, ruler = min(scored, key=lambda item: item[0])
-        remaining_rulers.remove(ruler)
-        paired.append((bottom, ruler, warnings))
+        if not rulers:
+            raise ValueError("auto mode found no ruler markers")
+        if len(bottoms) != len(rulers):
+            raise ValueError(
+                f"auto mode found {len(bottoms)} bottom markers and {len(rulers)} ruler markers; counts must match"
+            )
+
+        remaining_rulers = list(rulers)
+        paired = []
+        for bottom in sorted(bottoms, key=lambda component: component.center[0]):
+            scored = [
+                (score, ruler)
+                for ruler in remaining_rulers
+                if (score := ruler_pair_score(bottom, ruler, settings)) is not None
+            ]
+            warnings: list[str] = []
+            if not scored:
+                scored = [
+                    (abs(ruler.center[0] - bottom.center[0]) + abs((ruler.max_y + 0.5) - bottom.center[1]) * 4, ruler)
+                    for ruler in remaining_rulers
+                ]
+                warnings.append(f"no unused ruler found on the {settings.ruler_side}; using nearest ruler")
+
+            _, ruler = min(scored, key=lambda item: item[0])
+            remaining_rulers.remove(ruler)
+            paired.append((bottom, ruler, warnings))
 
     detections: list[FrameDetection] = []
     for frame_index, (bottom, ruler, warnings) in enumerate(
@@ -458,7 +486,9 @@ def clear_marker_pixels(frame: Image.Image, settings: Settings) -> Image.Image:
     output = frame.copy()
     pixels = output.load()
     width, height = output.size
-    marker_colors = (settings.bottom_marker_color, settings.ruler_marker_color)
+    marker_colors = [settings.bottom_marker_color]
+    if settings.ruler_side != "none":
+        marker_colors.append(settings.ruler_marker_color)
     for y in range(height):
         for x in range(width):
             pixel = pixels[x, y]
@@ -675,7 +705,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--frame-height", type=int)
     parser.add_argument("--target-character-height", type=int)
     parser.add_argument("--bottom-padding", type=int)
-    parser.add_argument("--ruler-side", choices=["right", "left", "nearest"])
+    parser.add_argument("--ruler-side", choices=["right", "left", "nearest", "none"])
     parser.add_argument("--bottom-marker-color")
     parser.add_argument("--ruler-marker-color")
     parser.add_argument("--marker-tolerance", type=int)
