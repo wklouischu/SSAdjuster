@@ -1,0 +1,1394 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sprite Sheet Adjuster</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f4ef;
+      --panel: #ffffff;
+      --ink: #1f2428;
+      --muted: #66707a;
+      --line: #d8d2c8;
+      --accent: #c53131;
+      --accent-ink: #ffffff;
+      --teal: #0f766e;
+      --soft: #ebe6dd;
+      --shadow: 0 10px 30px rgba(31, 36, 40, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-width: 320px;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Segoe UI", "Noto Sans TC", system-ui, sans-serif;
+      line-height: 1.45;
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      border: 1px solid var(--line);
+      background: var(--panel);
+      color: var(--ink);
+      border-radius: 6px;
+      min-height: 36px;
+      padding: 0 12px;
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: #bcb3a4;
+      background: #faf9f6;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.45;
+    }
+
+    .primary {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: var(--accent-ink);
+    }
+
+    .primary:hover {
+      background: #a92828;
+      border-color: #a92828;
+    }
+
+    .ghost {
+      background: transparent;
+    }
+
+    .app {
+      width: min(1500px, 100%);
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(24px, 3vw, 38px);
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 14px;
+      text-align: right;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(300px, 390px) minmax(0, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+
+    .panel {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .controls {
+      position: sticky;
+      top: 16px;
+      display: grid;
+      gap: 14px;
+      padding: 14px;
+    }
+
+    .group {
+      display: grid;
+      gap: 10px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--soft);
+    }
+
+    .group:last-child {
+      padding-bottom: 0;
+      border-bottom: 0;
+    }
+
+    .group-title {
+      font-size: 13px;
+      font-weight: 760;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+    }
+
+    .drop-zone {
+      display: grid;
+      gap: 10px;
+      place-items: center;
+      min-height: 118px;
+      padding: 14px;
+      border: 2px dashed #c7bfb2;
+      border-radius: 8px;
+      background: #fbfaf7;
+      text-align: center;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+
+    .drop-zone.is-dragging {
+      border-color: var(--teal);
+      background: #eef8f6;
+    }
+
+    .drop-zone input {
+      display: none;
+    }
+
+    .file-name {
+      min-height: 20px;
+      color: var(--muted);
+      font-size: 13px;
+      word-break: break-all;
+    }
+
+    .grid-2,
+    .grid-3 {
+      display: grid;
+      gap: 10px;
+    }
+
+    .grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .grid-3 {
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+    }
+
+    label {
+      display: grid;
+      gap: 5px;
+      min-width: 0;
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 620;
+    }
+
+    input[type="number"],
+    input[type="color"],
+    input[type="text"] {
+      width: 100%;
+      min-width: 0;
+      height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #fff;
+      color: var(--ink);
+      padding: 0 10px;
+    }
+
+    input[type="color"] {
+      padding: 3px;
+    }
+
+    input[type="range"] {
+      width: 100%;
+    }
+
+    .button-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .icon-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 38px);
+      gap: 6px;
+      justify-content: start;
+      align-items: center;
+    }
+
+    .icon-button {
+      width: 38px;
+      min-height: 38px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      font-size: 18px;
+      line-height: 1;
+    }
+
+    .frame-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+      gap: 6px;
+      max-height: 164px;
+      overflow: auto;
+      padding-right: 2px;
+    }
+
+    .frame-list button {
+      min-height: 32px;
+      padding: 0;
+      font-size: 12px;
+    }
+
+    .frame-list button.is-selected {
+      border-color: var(--teal);
+      background: var(--teal);
+      color: #fff;
+    }
+
+    .workspace {
+      display: grid;
+      gap: 16px;
+    }
+
+    .canvas-panel {
+      padding: 14px;
+    }
+
+    .panel-head {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 12px;
+      margin-bottom: 10px;
+      flex-wrap: wrap;
+    }
+
+    .head-tools {
+      display: flex;
+      align-items: center;
+      justify-content: flex-start;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .zoom-tools {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .zoom-button {
+      width: 32px;
+      min-height: 32px;
+      padding: 0;
+      display: grid;
+      place-items: center;
+      line-height: 1;
+    }
+
+    .zoom-range {
+      width: 110px;
+      accent-color: var(--teal);
+    }
+
+    .zoom-label {
+      min-width: 44px;
+      color: var(--muted);
+      font-size: 12px;
+      text-align: right;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .zoom-number {
+      width: 64px;
+      height: 32px;
+      padding: 0 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      color: var(--ink);
+      font-size: 12px;
+      font-variant-numeric: tabular-nums;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 16px;
+      font-weight: 760;
+      letter-spacing: 0;
+    }
+
+    .metric {
+      color: var(--muted);
+      font-size: 13px;
+      text-align: right;
+      word-break: keep-all;
+    }
+
+    .canvas-wrap {
+      width: 100%;
+      overflow: auto;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background:
+        linear-gradient(45deg, #ded9ce 25%, transparent 25%),
+        linear-gradient(-45deg, #ded9ce 25%, transparent 25%),
+        linear-gradient(45deg, transparent 75%, #ded9ce 75%),
+        linear-gradient(-45deg, transparent 75%, #ded9ce 75%);
+      background-position: 0 0, 0 8px, 8px -8px, -8px 0;
+      background-size: 16px 16px;
+      cursor: grab;
+      user-select: none;
+      overscroll-behavior: contain;
+    }
+
+    .canvas-wrap.is-panning {
+      cursor: grabbing;
+    }
+
+    .canvas-wrap.is-panning canvas {
+      cursor: grabbing !important;
+    }
+
+    .preview-wrap {
+      max-height: min(70vh, 760px);
+      min-height: 180px;
+      touch-action: none;
+    }
+
+    canvas {
+      display: block;
+      max-width: none;
+      image-rendering: auto;
+    }
+
+    #sourceCanvas {
+      cursor: crosshair;
+    }
+
+    .player-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      align-items: start;
+    }
+
+    .player-cell {
+      display: grid;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .player-title {
+      color: var(--muted);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .notice {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 960px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        position: static;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .app {
+        padding: 12px;
+      }
+
+      header,
+      .panel-head,
+      .player-grid {
+        display: grid;
+        grid-template-columns: 1fr;
+      }
+
+      .status,
+      .metric {
+        text-align: left;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <h1>Sprite Sheet Adjuster</h1>
+      </div>
+      <div id="status" class="status">尚未載入圖片</div>
+    </header>
+
+    <div class="layout">
+      <aside class="panel controls">
+        <section class="group">
+          <div class="group-title">Input</div>
+          <div id="mainDrop" class="drop-zone">
+            <input id="sourceInput" type="file" accept="image/*">
+            <button type="button" class="primary" id="pickSource">開啟輸入圖</button>
+            <div class="file-name" id="sourceName">或拖曳圖片到這裡</div>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-title">Grid</div>
+          <div class="grid-2">
+            <label>
+              ROW
+              <input id="rowsInput" type="number" min="1" step="1" value="1">
+            </label>
+            <label>
+              COLUMN
+              <input id="colsInput" type="number" min="1" step="1" value="1">
+            </label>
+          </div>
+          <div class="grid-2">
+            <label>
+              Frame W
+              <input id="frameWidthInput" type="number" min="1" step="1" value="1">
+            </label>
+            <label>
+              Frame H
+              <input id="frameHeightInput" type="number" min="1" step="1" value="1">
+            </label>
+          </div>
+          <div class="button-row">
+            <button id="fitFrames" type="button">平均分配</button>
+            <button id="resetOffsets" type="button">重設偏移</button>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-title">Frame</div>
+          <div class="grid-3">
+            <label>
+              Index
+              <input id="frameIndexInput" type="number" min="1" step="1" value="1">
+            </label>
+            <label>
+              Offset X
+              <input id="offsetXInput" type="number" step="1" value="0">
+            </label>
+            <label>
+              Offset Y
+              <input id="offsetYInput" type="number" step="1" value="0">
+            </label>
+          </div>
+          <div class="icon-grid" aria-label="Nudge selected frame">
+            <span></span>
+            <button class="icon-button" id="nudgeUp" type="button" title="上移">↑</button>
+            <span></span>
+            <button class="icon-button" id="nudgeLeft" type="button" title="左移">←</button>
+            <button class="icon-button" id="nudgeZero" type="button" title="歸零">•</button>
+            <button class="icon-button" id="nudgeRight" type="button" title="右移">→</button>
+            <span></span>
+            <button class="icon-button" id="nudgeDown" type="button" title="下移">↓</button>
+            <span></span>
+          </div>
+          <div id="frameList" class="frame-list"></div>
+        </section>
+
+        <section class="group">
+          <div class="group-title">Preview</div>
+          <div class="grid-2">
+            <label>
+              框線色
+              <input id="boxColorInput" type="color" value="#ff0000">
+            </label>
+            <label>
+              Output H
+              <input id="outputHeightInput" type="number" min="1" step="1" value="1">
+            </label>
+          </div>
+          <label>
+            背景色 RGBA
+            <input id="backgroundColorInput" type="text" value="00FF00FF" maxlength="9" spellcheck="false">
+          </label>
+          <div class="grid-2">
+            <label>
+              FPS
+              <input id="fpsInput" type="number" min="1" max="60" step="1" value="8">
+            </label>
+            <label>
+              Frame
+              <input id="playFrameInput" type="number" min="1" step="1" value="1">
+            </label>
+          </div>
+          <input id="playSlider" type="range" min="1" max="1" value="1">
+          <div class="button-row">
+            <button id="playButton" type="button">播放</button>
+            <button id="exportButton" class="primary" type="button">下載 PNG</button>
+          </div>
+        </section>
+
+        <section class="group">
+          <div class="group-title">Compare</div>
+          <div id="compareDrop" class="drop-zone">
+            <input id="compareInput" type="file" accept="image/*">
+            <button type="button" id="pickCompare">開啟比較圖</button>
+            <div class="file-name" id="compareName">另一個序列圖</div>
+          </div>
+          <div class="grid-2">
+            <label>
+              ROW
+              <input id="compareRowsInput" type="number" min="1" step="1" value="1">
+            </label>
+            <label>
+              COLUMN
+              <input id="compareColsInput" type="number" min="1" step="1" value="1">
+            </label>
+          </div>
+        </section>
+      </aside>
+
+      <section class="workspace">
+        <section class="panel canvas-panel">
+          <div class="panel-head">
+            <h2>切割框</h2>
+            <div class="head-tools">
+              <div class="zoom-tools" aria-label="Source zoom">
+                <button class="zoom-button" id="sourceZoomOut" type="button" title="縮小">−</button>
+                <input class="zoom-range" id="sourceZoomRange" type="range" min="10" max="800" step="5" value="100">
+                <button class="zoom-button" id="sourceZoomIn" type="button" title="放大">+</button>
+                <button class="zoom-button" id="sourceZoomReset" type="button" title="1:1">1</button>
+                <input class="zoom-number" id="sourceZoomInput" type="number" min="10" max="800" step="1" value="100" title="Zoom percent">
+                <span class="zoom-label">%</span>
+              </div>
+              <div id="sourceMetric" class="metric">-</div>
+            </div>
+          </div>
+          <div id="sourceWrap" class="canvas-wrap preview-wrap">
+            <canvas id="sourceCanvas" width="960" height="540"></canvas>
+          </div>
+        </section>
+
+        <section class="panel canvas-panel">
+          <div class="panel-head">
+            <h2>整併預覽</h2>
+            <div class="head-tools">
+              <div class="zoom-tools" aria-label="Merged zoom">
+                <button class="zoom-button" id="mergedZoomOut" type="button" title="縮小">−</button>
+                <input class="zoom-range" id="mergedZoomRange" type="range" min="10" max="800" step="5" value="100">
+                <button class="zoom-button" id="mergedZoomIn" type="button" title="放大">+</button>
+                <button class="zoom-button" id="mergedZoomReset" type="button" title="1:1">1</button>
+                <input class="zoom-number" id="mergedZoomInput" type="number" min="10" max="800" step="1" value="100" title="Zoom percent">
+                <span class="zoom-label">%</span>
+              </div>
+              <div id="mergedMetric" class="metric">-</div>
+            </div>
+          </div>
+          <div id="mergedWrap" class="canvas-wrap preview-wrap">
+            <canvas id="mergedCanvas" width="960" height="160"></canvas>
+          </div>
+        </section>
+
+        <section class="panel canvas-panel">
+          <div class="panel-head">
+            <h2>播放預覽</h2>
+            <div id="playMetric" class="metric">-</div>
+          </div>
+          <div class="player-grid">
+            <div class="player-cell">
+              <div class="player-title">Output</div>
+              <div class="canvas-wrap">
+                <canvas id="outputPlayerCanvas" width="160" height="160"></canvas>
+              </div>
+            </div>
+            <div class="player-cell">
+              <div class="player-title">Compare</div>
+              <div class="canvas-wrap">
+                <canvas id="comparePlayerCanvas" width="160" height="160"></canvas>
+              </div>
+              <div id="compareNotice" class="notice"></div>
+            </div>
+          </div>
+        </section>
+      </section>
+    </div>
+  </main>
+
+  <script>
+    const state = {
+      sourceImage: null,
+      sourceName: "",
+      compareImage: null,
+      compareName: "",
+      compareRows: 1,
+      compareColumns: 1,
+      rows: 1,
+      columns: 1,
+      frameWidth: 1,
+      frameHeight: 1,
+      outputHeight: 1,
+      boxColor: "#ff0000",
+      backgroundColor: "00FF00FF",
+      sourceZoom: 1,
+      mergedZoom: 1,
+      dragPreview: null,
+      suppressSourceClickUntil: 0,
+      selectedIndex: 0,
+      playIndex: 0,
+      fps: 8,
+      playing: false,
+      playTimer: null,
+      offsets: [{ x: 0, y: 0 }],
+      mergedFrameWidth: 1,
+      mergedFrameHeight: 1
+    };
+
+    const els = {
+      status: document.querySelector("#status"),
+      sourceInput: document.querySelector("#sourceInput"),
+      sourceName: document.querySelector("#sourceName"),
+      mainDrop: document.querySelector("#mainDrop"),
+      pickSource: document.querySelector("#pickSource"),
+      compareInput: document.querySelector("#compareInput"),
+      compareName: document.querySelector("#compareName"),
+      compareDrop: document.querySelector("#compareDrop"),
+      pickCompare: document.querySelector("#pickCompare"),
+      compareRowsInput: document.querySelector("#compareRowsInput"),
+      compareColsInput: document.querySelector("#compareColsInput"),
+      rowsInput: document.querySelector("#rowsInput"),
+      colsInput: document.querySelector("#colsInput"),
+      frameWidthInput: document.querySelector("#frameWidthInput"),
+      frameHeightInput: document.querySelector("#frameHeightInput"),
+      outputHeightInput: document.querySelector("#outputHeightInput"),
+      boxColorInput: document.querySelector("#boxColorInput"),
+      backgroundColorInput: document.querySelector("#backgroundColorInput"),
+      frameIndexInput: document.querySelector("#frameIndexInput"),
+      offsetXInput: document.querySelector("#offsetXInput"),
+      offsetYInput: document.querySelector("#offsetYInput"),
+      fitFrames: document.querySelector("#fitFrames"),
+      resetOffsets: document.querySelector("#resetOffsets"),
+      frameList: document.querySelector("#frameList"),
+      nudgeUp: document.querySelector("#nudgeUp"),
+      nudgeDown: document.querySelector("#nudgeDown"),
+      nudgeLeft: document.querySelector("#nudgeLeft"),
+      nudgeRight: document.querySelector("#nudgeRight"),
+      nudgeZero: document.querySelector("#nudgeZero"),
+      fpsInput: document.querySelector("#fpsInput"),
+      playFrameInput: document.querySelector("#playFrameInput"),
+      playSlider: document.querySelector("#playSlider"),
+      playButton: document.querySelector("#playButton"),
+      exportButton: document.querySelector("#exportButton"),
+      sourceWrap: document.querySelector("#sourceWrap"),
+      mergedWrap: document.querySelector("#mergedWrap"),
+      sourceCanvas: document.querySelector("#sourceCanvas"),
+      mergedCanvas: document.querySelector("#mergedCanvas"),
+      sourceZoomOut: document.querySelector("#sourceZoomOut"),
+      sourceZoomRange: document.querySelector("#sourceZoomRange"),
+      sourceZoomIn: document.querySelector("#sourceZoomIn"),
+      sourceZoomReset: document.querySelector("#sourceZoomReset"),
+      sourceZoomInput: document.querySelector("#sourceZoomInput"),
+      mergedZoomOut: document.querySelector("#mergedZoomOut"),
+      mergedZoomRange: document.querySelector("#mergedZoomRange"),
+      mergedZoomIn: document.querySelector("#mergedZoomIn"),
+      mergedZoomReset: document.querySelector("#mergedZoomReset"),
+      mergedZoomInput: document.querySelector("#mergedZoomInput"),
+      outputPlayerCanvas: document.querySelector("#outputPlayerCanvas"),
+      comparePlayerCanvas: document.querySelector("#comparePlayerCanvas"),
+      sourceMetric: document.querySelector("#sourceMetric"),
+      mergedMetric: document.querySelector("#mergedMetric"),
+      playMetric: document.querySelector("#playMetric"),
+      compareNotice: document.querySelector("#compareNotice")
+    };
+
+    function frameCount() {
+      return Math.max(1, state.rows * state.columns);
+    }
+
+    function compareFrameCount() {
+      return Math.max(1, state.compareRows * state.compareColumns);
+    }
+
+    function clampInt(value, min, max) {
+      const parsed = Number.parseInt(value, 10);
+      if (!Number.isFinite(parsed)) return min;
+      return Math.min(Math.max(parsed, min), max);
+    }
+
+    function normalizeRgbaHex(value) {
+      const raw = String(value || "").trim().replace(/^#/, "").toUpperCase();
+      const hex = raw.replace(/[^0-9A-F]/g, "");
+      if (hex.length >= 8) return hex.slice(0, 8);
+      if (hex.length >= 6) return `${hex.slice(0, 6)}FF`;
+      return "00FF00FF";
+    }
+
+    function rgbaHexToCss(value) {
+      const hex = normalizeRgbaHex(value);
+      const r = Number.parseInt(hex.slice(0, 2), 16);
+      const g = Number.parseInt(hex.slice(2, 4), 16);
+      const b = Number.parseInt(hex.slice(4, 6), 16);
+      const a = Number.parseInt(hex.slice(6, 8), 16) / 255;
+      return `rgba(${r}, ${g}, ${b}, ${a})`;
+    }
+
+    function fillOutputBackground(ctx, width, height) {
+      ctx.save();
+      ctx.globalCompositeOperation = "source-over";
+      ctx.fillStyle = rgbaHexToCss(state.backgroundColor);
+      ctx.fillRect(0, 0, width, height);
+      ctx.restore();
+    }
+
+    function setCanvasSize(canvas, width, height) {
+      canvas.width = Math.max(1, Math.round(width));
+      canvas.height = Math.max(1, Math.round(height));
+      canvas.style.width = `${canvas.width}px`;
+      canvas.style.height = `${canvas.height}px`;
+    }
+
+    function clampZoom(value) {
+      return Math.min(Math.max(Number(value) || 1, 0.1), 8);
+    }
+
+    function previewParts(kind) {
+      if (kind === "source") {
+        return {
+          wrap: els.sourceWrap,
+          canvas: els.sourceCanvas,
+          range: els.sourceZoomRange,
+          input: els.sourceZoomInput,
+          zoomOut: els.sourceZoomOut,
+          zoomIn: els.sourceZoomIn,
+          zoomReset: els.sourceZoomReset,
+          zoomKey: "sourceZoom"
+        };
+      }
+      return {
+        wrap: els.mergedWrap,
+        canvas: els.mergedCanvas,
+        range: els.mergedZoomRange,
+        input: els.mergedZoomInput,
+        zoomOut: els.mergedZoomOut,
+        zoomIn: els.mergedZoomIn,
+        zoomReset: els.mergedZoomReset,
+        zoomKey: "mergedZoom"
+      };
+    }
+
+    function applyPreviewZoom(kind) {
+      const parts = previewParts(kind);
+      const zoom = clampZoom(state[parts.zoomKey]);
+      state[parts.zoomKey] = zoom;
+      parts.canvas.style.width = `${parts.canvas.width * zoom}px`;
+      parts.canvas.style.height = `${parts.canvas.height * zoom}px`;
+      parts.range.value = Math.round(zoom * 100);
+      parts.input.value = Math.round(zoom * 100);
+    }
+
+    function setPreviewZoom(kind, value) {
+      const parts = previewParts(kind);
+      const oldZoom = clampZoom(state[parts.zoomKey]);
+      const centerX = (parts.wrap.scrollLeft + parts.wrap.clientWidth / 2) / (parts.canvas.width * oldZoom);
+      const centerY = (parts.wrap.scrollTop + parts.wrap.clientHeight / 2) / (parts.canvas.height * oldZoom);
+      state[parts.zoomKey] = clampZoom(value);
+      applyPreviewZoom(kind);
+      parts.wrap.scrollLeft = parts.canvas.width * state[parts.zoomKey] * centerX - parts.wrap.clientWidth / 2;
+      parts.wrap.scrollTop = parts.canvas.height * state[parts.zoomKey] * centerY - parts.wrap.clientHeight / 2;
+    }
+
+    function setupPreviewZoom(kind) {
+      const parts = previewParts(kind);
+      parts.zoomOut.addEventListener("click", () => setPreviewZoom(kind, state[parts.zoomKey] / 1.25));
+      parts.zoomIn.addEventListener("click", () => setPreviewZoom(kind, state[parts.zoomKey] * 1.25));
+      parts.zoomReset.addEventListener("click", () => setPreviewZoom(kind, 1));
+      parts.range.addEventListener("input", () => setPreviewZoom(kind, Number(parts.range.value) / 100));
+      parts.input.addEventListener("change", () => setPreviewZoom(kind, Number(parts.input.value) / 100));
+      parts.input.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          parts.input.blur();
+        }
+      });
+    }
+
+    function setupPreviewPan(kind) {
+      const parts = previewParts(kind);
+      parts.wrap.addEventListener("pointerdown", (event) => {
+        if (event.button !== 0) return;
+        state.dragPreview = {
+          kind,
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          scrollLeft: parts.wrap.scrollLeft,
+          scrollTop: parts.wrap.scrollTop,
+          moved: false
+        };
+        parts.wrap.setPointerCapture(event.pointerId);
+        parts.wrap.classList.add("is-panning");
+      });
+
+      parts.wrap.addEventListener("pointermove", (event) => {
+        const drag = state.dragPreview;
+        if (!drag || drag.kind !== kind || drag.pointerId !== event.pointerId) return;
+        const dx = event.clientX - drag.startX;
+        const dy = event.clientY - drag.startY;
+        if (Math.abs(dx) + Math.abs(dy) > 4) {
+          drag.moved = true;
+        }
+        parts.wrap.scrollLeft = drag.scrollLeft - dx;
+        parts.wrap.scrollTop = drag.scrollTop - dy;
+        event.preventDefault();
+      });
+
+      function endPan(event) {
+        const drag = state.dragPreview;
+        if (!drag || drag.kind !== kind || drag.pointerId !== event.pointerId) return;
+        if (drag.moved && kind === "source") {
+          state.suppressSourceClickUntil = Date.now() + 150;
+        }
+        parts.wrap.classList.remove("is-panning");
+        state.dragPreview = null;
+      }
+
+      parts.wrap.addEventListener("pointerup", endPan);
+      parts.wrap.addEventListener("pointercancel", endPan);
+    }
+
+    function makeImageFromFile(file) {
+      return new Promise((resolve, reject) => {
+        const url = URL.createObjectURL(file);
+        const image = new Image();
+        image.onload = () => {
+          URL.revokeObjectURL(url);
+          resolve(image);
+        };
+        image.onerror = () => {
+          URL.revokeObjectURL(url);
+          reject(new Error("image load failed"));
+        };
+        image.src = url;
+      });
+    }
+
+    async function loadSourceFile(file) {
+      if (!file) return;
+      const image = await makeImageFromFile(file);
+      state.sourceImage = image;
+      state.sourceName = file.name;
+      state.sourceZoom = 1;
+      state.mergedZoom = 1;
+      state.rows = clampInt(els.rowsInput.value, 1, 999);
+      state.columns = clampInt(els.colsInput.value, 1, 999);
+      fitFramesToGrid();
+      state.outputHeight = state.frameHeight;
+      state.selectedIndex = 0;
+      state.playIndex = 0;
+      ensureOffsets(true);
+      syncInputs();
+      renderAll();
+    }
+
+    async function loadCompareFile(file) {
+      if (!file) return;
+      const image = await makeImageFromFile(file);
+      state.compareImage = image;
+      state.compareName = file.name;
+      state.compareRows = 1;
+      state.compareColumns = frameCount();
+      els.compareName.textContent = file.name;
+      syncInputs();
+      renderPlayback();
+    }
+
+    function fitFramesToGrid() {
+      if (!state.sourceImage) return;
+      const cellWidth = state.sourceImage.width / Math.max(1, state.columns);
+      const cellHeight = state.sourceImage.height / Math.max(1, state.rows);
+      state.frameWidth = Math.max(1, Math.floor(cellWidth));
+      state.frameHeight = Math.max(1, Math.floor(cellHeight));
+      if (!state.outputHeight || state.outputHeight === Number.parseInt(els.frameHeightInput.value, 10)) {
+        state.outputHeight = state.frameHeight;
+      }
+    }
+
+    function ensureOffsets(reset = false) {
+      const count = frameCount();
+      if (reset || state.offsets.length !== count) {
+        const next = Array.from({ length: count }, (_, index) => state.offsets[index] || { x: 0, y: 0 });
+        state.offsets = next.map((offset) => ({ x: offset.x || 0, y: offset.y || 0 }));
+      }
+      state.selectedIndex = Math.min(state.selectedIndex, count - 1);
+      state.playIndex = Math.min(state.playIndex, count - 1);
+    }
+
+    function syncStateFromInputs(options = {}) {
+      const previousHeight = state.frameHeight;
+      state.rows = clampInt(els.rowsInput.value, 1, 999);
+      state.columns = clampInt(els.colsInput.value, 1, 999);
+      state.compareRows = clampInt(els.compareRowsInput.value, 1, 999);
+      state.compareColumns = clampInt(els.compareColsInput.value, 1, 999);
+      ensureOffsets();
+
+      if (options.fit) {
+        fitFramesToGrid();
+      } else {
+        state.frameWidth = clampInt(els.frameWidthInput.value, 1, 99999);
+        state.frameHeight = clampInt(els.frameHeightInput.value, 1, 99999);
+        state.outputHeight = clampInt(els.outputHeightInput.value, 1, 99999);
+      }
+
+      state.boxColor = els.boxColorInput.value || "#ff0000";
+      state.backgroundColor = normalizeRgbaHex(els.backgroundColorInput.value);
+      state.fps = clampInt(els.fpsInput.value, 1, 60);
+      if (options.keepOutputWithFrame && state.outputHeight === previousHeight) {
+        state.outputHeight = state.frameHeight;
+      }
+      state.selectedIndex = clampInt(els.frameIndexInput.value, 1, frameCount()) - 1;
+      state.playIndex = clampInt(els.playFrameInput.value, 1, frameCount()) - 1;
+    }
+
+    function syncInputs() {
+      els.rowsInput.value = state.rows;
+      els.colsInput.value = state.columns;
+      els.compareRowsInput.value = state.compareRows;
+      els.compareColsInput.value = state.compareColumns;
+      els.frameWidthInput.value = state.frameWidth;
+      els.frameHeightInput.value = state.frameHeight;
+      els.outputHeightInput.value = state.outputHeight;
+      els.boxColorInput.value = state.boxColor;
+      els.backgroundColorInput.value = state.backgroundColor;
+      els.frameIndexInput.max = frameCount();
+      els.frameIndexInput.value = state.selectedIndex + 1;
+      els.playFrameInput.max = frameCount();
+      els.playFrameInput.value = state.playIndex + 1;
+      els.playSlider.max = frameCount();
+      els.playSlider.value = state.playIndex + 1;
+      els.fpsInput.value = state.fps;
+      const selected = state.offsets[state.selectedIndex] || { x: 0, y: 0 };
+      els.offsetXInput.value = selected.x;
+      els.offsetYInput.value = selected.y;
+      els.sourceName.textContent = state.sourceName || "或拖曳圖片到這裡";
+      els.compareName.textContent = state.compareName || "另一個序列圖";
+    }
+
+    function getFrameRect(index) {
+      const image = state.sourceImage;
+      if (!image) return { x: 0, y: 0, width: state.frameWidth, height: state.frameHeight };
+      const column = index % state.columns;
+      const row = Math.floor(index / state.columns);
+      const cellWidth = image.width / state.columns;
+      const cellHeight = image.height / state.rows;
+      const offset = state.offsets[index] || { x: 0, y: 0 };
+      const x = column * cellWidth + (cellWidth - state.frameWidth) / 2 + offset.x;
+      const y = row * cellHeight + (cellHeight - state.frameHeight) / 2 + offset.y;
+      return { x, y, width: state.frameWidth, height: state.frameHeight };
+    }
+
+    function drawSourcePreview() {
+      const canvas = els.sourceCanvas;
+      const ctx = canvas.getContext("2d");
+      if (!state.sourceImage) {
+        setCanvasSize(canvas, 960, 540);
+        applyPreviewZoom("source");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#fbfaf7";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#66707a";
+        ctx.font = "18px Segoe UI, sans-serif";
+        ctx.fillText("開啟或拖曳輸入圖", 24, 44);
+        els.sourceMetric.textContent = "-";
+        return;
+      }
+
+      setCanvasSize(canvas, state.sourceImage.width, state.sourceImage.height);
+      applyPreviewZoom("source");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(state.sourceImage, 0, 0);
+      ctx.save();
+      ctx.strokeStyle = state.boxColor;
+      ctx.lineWidth = Math.max(1, Math.round(Math.min(canvas.width, canvas.height) / 500));
+      ctx.font = `${Math.max(10, Math.round(canvas.height / 42))}px Segoe UI, sans-serif`;
+      ctx.textBaseline = "top";
+
+      for (let index = 0; index < frameCount(); index += 1) {
+        const rect = getFrameRect(index);
+        ctx.globalAlpha = index === state.selectedIndex ? 1 : 0.72;
+        ctx.strokeStyle = index === state.selectedIndex ? "#0f766e" : state.boxColor;
+        ctx.lineWidth = index === state.selectedIndex ? 3 : 1.5;
+        ctx.strokeRect(Math.round(rect.x) + 0.5, Math.round(rect.y) + 0.5, rect.width, rect.height);
+        ctx.fillStyle = index === state.selectedIndex ? "rgba(15, 118, 110, 0.9)" : "rgba(197, 49, 49, 0.85)";
+        ctx.fillRect(Math.round(rect.x), Math.round(rect.y), 30, 18);
+        ctx.fillStyle = "#fff";
+        ctx.fillText(String(index + 1), Math.round(rect.x) + 5, Math.round(rect.y) + 2);
+      }
+      ctx.restore();
+      els.sourceMetric.textContent = `${state.sourceImage.width} x ${state.sourceImage.height}px`;
+    }
+
+    function drawCroppedFrame(targetContext, frameIndex, dx, dy, dw, dh) {
+      const image = state.sourceImage;
+      if (!image) return;
+      const rect = getFrameRect(frameIndex);
+      const sx = rect.x;
+      const sy = rect.y;
+      const sw = rect.width;
+      const sh = rect.height;
+      const clippedLeft = Math.max(0, sx);
+      const clippedTop = Math.max(0, sy);
+      const clippedRight = Math.min(image.width, sx + sw);
+      const clippedBottom = Math.min(image.height, sy + sh);
+      if (clippedRight <= clippedLeft || clippedBottom <= clippedTop) return;
+
+      const scaleX = dw / sw;
+      const scaleY = dh / sh;
+      const destinationX = dx + (clippedLeft - sx) * scaleX;
+      const destinationY = dy + (clippedTop - sy) * scaleY;
+      const destinationW = (clippedRight - clippedLeft) * scaleX;
+      const destinationH = (clippedBottom - clippedTop) * scaleY;
+      targetContext.drawImage(
+        image,
+        clippedLeft,
+        clippedTop,
+        clippedRight - clippedLeft,
+        clippedBottom - clippedTop,
+        destinationX,
+        destinationY,
+        destinationW,
+        destinationH
+      );
+    }
+
+    function renderMergedCanvas() {
+      const canvas = els.mergedCanvas;
+      const ctx = canvas.getContext("2d");
+      if (!state.sourceImage) {
+        setCanvasSize(canvas, 960, 160);
+        applyPreviewZoom("merged");
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        els.mergedMetric.textContent = "-";
+        return;
+      }
+
+      const scale = state.outputHeight / state.frameHeight;
+      state.mergedFrameWidth = Math.max(1, Math.round(state.frameWidth * scale));
+      state.mergedFrameHeight = Math.max(1, state.outputHeight);
+      setCanvasSize(canvas, state.mergedFrameWidth * frameCount(), state.mergedFrameHeight);
+      applyPreviewZoom("merged");
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      fillOutputBackground(ctx, canvas.width, canvas.height);
+      ctx.imageSmoothingEnabled = true;
+      ctx.imageSmoothingQuality = "high";
+      for (let index = 0; index < frameCount(); index += 1) {
+        drawCroppedFrame(ctx, index, index * state.mergedFrameWidth, 0, state.mergedFrameWidth, state.mergedFrameHeight);
+      }
+      els.mergedMetric.textContent = `${canvas.width} x ${canvas.height}px`;
+    }
+
+    function renderPlayback() {
+      const outputCanvas = els.outputPlayerCanvas;
+      const outputCtx = outputCanvas.getContext("2d");
+      const compareCanvas = els.comparePlayerCanvas;
+      const compareCtx = compareCanvas.getContext("2d");
+
+      if (!state.sourceImage) {
+        setCanvasSize(outputCanvas, 160, 160);
+        setCanvasSize(compareCanvas, 160, 160);
+        outputCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+        compareCtx.clearRect(0, 0, compareCanvas.width, compareCanvas.height);
+        els.playMetric.textContent = "-";
+        return;
+      }
+
+      renderMergedCanvas();
+      setCanvasSize(outputCanvas, state.mergedFrameWidth, state.mergedFrameHeight);
+      outputCtx.clearRect(0, 0, outputCanvas.width, outputCanvas.height);
+      outputCtx.drawImage(
+        els.mergedCanvas,
+        state.playIndex * state.mergedFrameWidth,
+        0,
+        state.mergedFrameWidth,
+        state.mergedFrameHeight,
+        0,
+        0,
+        outputCanvas.width,
+        outputCanvas.height
+      );
+
+      if (state.compareImage) {
+        const compareCount = compareFrameCount();
+        const compareIndex = state.playIndex % compareCount;
+        const compareColumn = compareIndex % state.compareColumns;
+        const compareRow = Math.floor(compareIndex / state.compareColumns);
+        const compareFrameWidth = state.compareImage.width / state.compareColumns;
+        const compareFrameHeight = state.compareImage.height / state.compareRows;
+        setCanvasSize(compareCanvas, compareFrameWidth, compareFrameHeight);
+        compareCtx.clearRect(0, 0, compareCanvas.width, compareCanvas.height);
+        compareCtx.drawImage(
+          state.compareImage,
+          compareColumn * compareFrameWidth,
+          compareRow * compareFrameHeight,
+          compareFrameWidth,
+          compareFrameHeight,
+          0,
+          0,
+          compareCanvas.width,
+          compareCanvas.height
+        );
+        const divisible = Number.isInteger(compareFrameWidth) && Number.isInteger(compareFrameHeight);
+        const countNote = compareCount === frameCount() ? "" : ` / Compare frame ${(compareIndex + 1)} of ${compareCount}`;
+        els.compareNotice.textContent = divisible
+          ? ""
+          : `比較圖尺寸無法被 ${state.compareRows} x ${state.compareColumns} 整除`;
+        els.playMetric.textContent = `Output ${outputCanvas.width} x ${outputCanvas.height}px / Compare ${compareCanvas.width} x ${compareCanvas.height}px${countNote}`;
+      } else {
+        setCanvasSize(compareCanvas, outputCanvas.width, outputCanvas.height);
+        compareCtx.clearRect(0, 0, compareCanvas.width, compareCanvas.height);
+        els.compareNotice.textContent = "";
+        els.playMetric.textContent = `Output ${outputCanvas.width} x ${outputCanvas.height}px`;
+      }
+    }
+
+    function renderFrameList() {
+      const count = frameCount();
+      const fragment = document.createDocumentFragment();
+      for (let index = 0; index < count; index += 1) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = String(index + 1);
+        button.className = index === state.selectedIndex ? "is-selected" : "";
+        button.addEventListener("click", () => {
+          state.selectedIndex = index;
+          state.playIndex = index;
+          syncInputs();
+          renderAll();
+        });
+        fragment.appendChild(button);
+      }
+      els.frameList.replaceChildren(fragment);
+    }
+
+    function renderAll() {
+      ensureOffsets();
+      syncInputs();
+      drawSourcePreview();
+      renderMergedCanvas();
+      renderPlayback();
+      renderFrameList();
+      const count = frameCount();
+      els.status.textContent = state.sourceImage
+        ? `${count} frames / ${state.frameWidth} x ${state.frameHeight}px`
+        : "尚未載入圖片";
+    }
+
+    function updateSelectedOffset(x, y) {
+      ensureOffsets();
+      state.offsets[state.selectedIndex] = { x, y };
+      syncInputs();
+      renderAll();
+    }
+
+    function nudgeSelected(dx, dy) {
+      const selected = state.offsets[state.selectedIndex] || { x: 0, y: 0 };
+      updateSelectedOffset(selected.x + dx, selected.y + dy);
+    }
+
+    function selectFrameFromCanvas(event) {
+      if (Date.now() < state.suppressSourceClickUntil) return;
+      if (!state.sourceImage) return;
+      const rect = els.sourceCanvas.getBoundingClientRect();
+      const scaleX = els.sourceCanvas.width / rect.width;
+      const scaleY = els.sourceCanvas.height / rect.height;
+      const x = (event.clientX - rect.left) * scaleX;
+      const y = (event.clientY - rect.top) * scaleY;
+      for (let index = frameCount() - 1; index >= 0; index -= 1) {
+        const frameRect = getFrameRect(index);
+        if (
+          x >= frameRect.x &&
+          y >= frameRect.y &&
+          x <= frameRect.x + frameRect.width &&
+          y <= frameRect.y + frameRect.height
+        ) {
+          state.selectedIndex = index;
+          state.playIndex = index;
+          syncInputs();
+          renderAll();
+          return;
+        }
+      }
+    }
+
+    function startPlayback() {
+      stopPlayback();
+      state.playing = true;
+      els.playButton.textContent = "暫停";
+      const interval = 1000 / state.fps;
+      state.playTimer = window.setInterval(() => {
+        state.playIndex = (state.playIndex + 1) % frameCount();
+        syncInputs();
+        renderPlayback();
+      }, interval);
+    }
+
+    function stopPlayback() {
+      state.playing = false;
+      els.playButton.textContent = "播放";
+      if (state.playTimer) {
+        window.clearInterval(state.playTimer);
+        state.playTimer = null;
+      }
+    }
+
+    function exportMergedPng() {
+      if (!state.sourceImage) return;
+      state.backgroundColor = normalizeRgbaHex(els.backgroundColorInput.value);
+      renderMergedCanvas();
+      const link = document.createElement("a");
+      const sourceBase = state.sourceName.replace(/\.[^.]+$/, "") || "sprite";
+      link.download = `${sourceBase}.merged.png`;
+      link.href = els.mergedCanvas.toDataURL("image/png");
+      link.click();
+    }
+
+    function wireDropZone(zone, input, handler) {
+      zone.addEventListener("dragover", (event) => {
+        event.preventDefault();
+        zone.classList.add("is-dragging");
+      });
+      zone.addEventListener("dragleave", () => zone.classList.remove("is-dragging"));
+      zone.addEventListener("drop", (event) => {
+        event.preventDefault();
+        zone.classList.remove("is-dragging");
+        const file = event.dataTransfer.files[0];
+        handler(file).catch(() => {
+          els.status.textContent = "圖片載入失敗";
+        });
+      });
+      input.addEventListener("change", () => {
+        handler(input.files[0]).catch(() => {
+          els.status.textContent = "圖片載入失敗";
+        });
+      });
+    }
+
+    els.pickSource.addEventListener("click", () => els.sourceInput.click());
+    els.pickCompare.addEventListener("click", () => els.compareInput.click());
+    wireDropZone(els.mainDrop, els.sourceInput, loadSourceFile);
+    wireDropZone(els.compareDrop, els.compareInput, loadCompareFile);
+
+    [els.rowsInput, els.colsInput].forEach((input) => {
+      input.addEventListener("change", () => {
+        syncStateFromInputs({ fit: true });
+        ensureOffsets();
+        renderAll();
+      });
+    });
+
+    [els.compareRowsInput, els.compareColsInput].forEach((input) => {
+      input.addEventListener("change", () => {
+        state.compareRows = clampInt(els.compareRowsInput.value, 1, 999);
+        state.compareColumns = clampInt(els.compareColsInput.value, 1, 999);
+        syncInputs();
+        renderPlayback();
+      });
+    });
+
+    [els.frameWidthInput, els.frameHeightInput, els.outputHeightInput, els.boxColorInput, els.fpsInput].forEach((input) => {
+      input.addEventListener("input", () => {
+        syncStateFromInputs();
+        if (state.playing) startPlayback();
+        renderAll();
+      });
+    });
+
+    els.backgroundColorInput.addEventListener("change", () => {
+      state.backgroundColor = normalizeRgbaHex(els.backgroundColorInput.value);
+      renderAll();
+    });
+
+    els.backgroundColorInput.addEventListener("keydown", (event) => {
+      if (event.key === "Enter") {
+        els.backgroundColorInput.blur();
+      }
+    });
+
+    els.fitFrames.addEventListener("click", () => {
+      fitFramesToGrid();
+      syncInputs();
+      renderAll();
+    });
+
+    els.resetOffsets.addEventListener("click", () => {
+      state.offsets = Array.from({ length: frameCount() }, () => ({ x: 0, y: 0 }));
+      renderAll();
+    });
+
+    els.frameIndexInput.addEventListener("change", () => {
+      state.selectedIndex = clampInt(els.frameIndexInput.value, 1, frameCount()) - 1;
+      state.playIndex = state.selectedIndex;
+      renderAll();
+    });
+
+    [els.offsetXInput, els.offsetYInput].forEach((input) => {
+      input.addEventListener("input", () => {
+        const x = Number.parseInt(els.offsetXInput.value, 10) || 0;
+        const y = Number.parseInt(els.offsetYInput.value, 10) || 0;
+        state.offsets[state.selectedIndex] = { x, y };
+        drawSourcePreview();
+        renderMergedCanvas();
+        renderPlayback();
+      });
+    });
+
+    els.nudgeUp.addEventListener("click", () => nudgeSelected(0, -1));
+    els.nudgeDown.addEventListener("click", () => nudgeSelected(0, 1));
+    els.nudgeLeft.addEventListener("click", () => nudgeSelected(-1, 0));
+    els.nudgeRight.addEventListener("click", () => nudgeSelected(1, 0));
+    els.nudgeZero.addEventListener("click", () => updateSelectedOffset(0, 0));
+
+    els.playSlider.addEventListener("input", () => {
+      state.playIndex = clampInt(els.playSlider.value, 1, frameCount()) - 1;
+      state.selectedIndex = state.playIndex;
+      renderAll();
+    });
+
+    els.playFrameInput.addEventListener("change", () => {
+      state.playIndex = clampInt(els.playFrameInput.value, 1, frameCount()) - 1;
+      state.selectedIndex = state.playIndex;
+      renderAll();
+    });
+
+    els.playButton.addEventListener("click", () => {
+      syncStateFromInputs();
+      if (state.playing) {
+        stopPlayback();
+      } else {
+        startPlayback();
+      }
+    });
+
+    els.exportButton.addEventListener("click", exportMergedPng);
+    els.sourceCanvas.addEventListener("click", selectFrameFromCanvas);
+    setupPreviewZoom("source");
+    setupPreviewZoom("merged");
+    setupPreviewPan("source");
+    setupPreviewPan("merged");
+
+    renderAll();
+  </script>
+</body>
+</html>
